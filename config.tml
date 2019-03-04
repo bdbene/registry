@@ -1,0 +1,5 @@
+[serverConfigurations]
+port = ":8080"
+
+[storageConfigurations]
+location = "./data/
