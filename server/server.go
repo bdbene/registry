@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 
 	"github.com/bdbene/registry/storage"
 	"github.com/gorilla/mux"
@@ -42,10 +43,10 @@ func NewServer(configs *ServerConfig, storage storage.Storage) (*RestServer, err
 
 // Listen starts the server.
 func (server *RestServer) Listen() {
-	// port := server.port
+	port := server.port
 
-	log.Printf("Running server on port %s.", "8080")
-	log.Fatal(http.ListenAndServe(":8080", server.router))
+	log.Printf("Running server on port %s.", port)
+	log.Fatal(http.ListenAndServe(":"+port, server.router))
 }
 
 func (server *RestServer) getSchemaVersions(writer http.ResponseWriter, request *http.Request) {
@@ -64,8 +65,8 @@ func (server *RestServer) getSchemaVersions(writer http.ResponseWriter, request 
 		return
 	}
 
-	fmt.Fprint(writer, versions)
 	writer.WriteHeader(http.StatusOK)
+	fmt.Fprint(writer, versions)
 }
 
 func (server *RestServer) getSchema(writer http.ResponseWriter, request *http.Request) {
@@ -76,8 +77,19 @@ func (server *RestServer) getSchema(writer http.ResponseWriter, request *http.Re
 		return
 	}
 
-	fmt.Println(path.Base(url.String()))
+	eles := strings.Split(url.String(), "/")
+	name := eles[2]
+	version := eles[4]
+
+	schema, err := server.storage.Lookup(name, version)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(writer, "Failed to find schema.", http.StatusInternalServerError)
+		return
+	}
+
 	writer.WriteHeader(http.StatusOK)
+	fmt.Fprintf(writer, schema)
 }
 
 func (server *RestServer) createSchema(writer http.ResponseWriter, request *http.Request) {

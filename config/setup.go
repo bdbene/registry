@@ -2,6 +2,8 @@ package config
 
 import (
 	"io/ioutil"
+	"log"
+	"os"
 
 	"github.com/BurntSushi/toml"
 )
@@ -14,12 +16,22 @@ func GetConfigs(conf *Config) error {
 		return err
 	}
 
-	toml.Decode(rawConfigs, conf)
+	_, err = toml.Decode(rawConfigs, conf)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func readConfigurations() (string, error) {
-	rawConfigurations, err := ioutil.ReadFile("./config.tml")
+	location := os.Getenv("REGISTRY_CONFIG")
+	if location == "" {
+		location = "./config.tml"
+	}
+
+	log.Printf("Reading configurations from %s\n", location)
+	rawConfigurations, err := ioutil.ReadFile(location)
 
 	if err != nil {
 		return "", &ConfigError{"Error reading configurations: " + err.Error()}
