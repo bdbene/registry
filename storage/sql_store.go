@@ -20,7 +20,7 @@ type SqlStore struct {
 	mutex          *sync.Mutex
 }
 
-const createStatement string = "CREATE TABLE IF NOT EXISTS schemas (name TEXT, version TEXT, schema TEXT, PRIMARY KEY (name, version))"
+const createStatement string = "CREATE TABLE IF NOT EXISTS schemas (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, version TEXT, schema TEXT)"
 const insertSchema string = "INSERT INTO schemas (name, version, schema) VALUES (?, ?, ?)"
 const queryVersions string = "SELECT version FROM schemas WHERE name=?"
 const querySchema string = "SELECT name, schema FROM schemas WHERE version=?"
@@ -28,11 +28,11 @@ const querySchema string = "SELECT name, schema FROM schemas WHERE version=?"
 // NewSqlStore creates a data store that persists committed data to disk
 // in an append only log.
 func NewSqlStore(config *StorageConfig) (*SqlStore, error) {
-	location := "./data/database.db"
+	location := config.Location
 
 	db, err := sql.Open("sqlite3", location)
 	if err != nil {
-		return nil, &StorageError{err.Error()}
+		return nil, &StorageError{err.Error() + " " + location}
 	}
 
 	statement, err := db.Prepare(createStatement)
@@ -52,6 +52,8 @@ func NewSqlStore(config *StorageConfig) (*SqlStore, error) {
 
 // Propose a value by saving it in memory before proposing it to other nodes.
 func (db *SqlStore) Propose(key, value string) error {
+	fmt.Printf("key: %s, value: %s\n", key, value)
+
 	db.mutex.Lock()
 	db.proposedCache[key] = value
 	db.mutex.Unlock()
@@ -95,16 +97,24 @@ func (db *SqlStore) LookupVersions(key string) ([]string, error) {
 
 	defer rows.Close()
 	versions := make([]string, 1)
+	var id int
+	var name string
+	var schema string
 
 	for rows.Next() {
 		var version string
 
-		err = rows.Scan(&version)
+		rows.Scan(&id)
+		rows.Scan(&name)
+		rows.Scan(&version)
+		err = rows.Scan(&schema)
 		if err != nil {
 			return nil, &StorageError{err.Error()}
 		}
 
 		versions = append(versions, version)
+
+		fmt.Printf("name: %s, id: %d, version: %s, schema: %s\n", name, id, version, schema)
 	}
 
 	return versions, nil
@@ -113,6 +123,7 @@ func (db *SqlStore) LookupVersions(key string) ([]string, error) {
 // Lookup a schema based on its name and version.
 func (db *SqlStore) Lookup(key string, version string) (string, error) {
 	row := db.committedStore.QueryRow(querySchema, key, version)
+	fmt.Printf("name: %s, version: %s\n", key, version)
 
 	var schema string
 

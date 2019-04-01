@@ -1,5 +1,7 @@
+# Example configurations.
+
 [serverConfigurations]
-port = ":8080"
+port = "8080"
 
 [storageConfigurations]
-location = "./data/
+location = "/data/database.db"
